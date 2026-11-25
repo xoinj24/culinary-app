@@ -1,18 +1,37 @@
-import type { Category, NewRecipe, Recipe, RecipeDraft, RecipeFilter } from "./types.js";
+import type {
+  Category,
+  NewRecipe,
+  Recipe,
+  RecipeDraft,
+  RecipeFilter,
+  RecipeSortKey,
+  RecipeUpdate,
+} from "./types.js";
 import type { LoadState } from "./state.js";
 import {
   createRecipeOnServer,
   deleteRecipeOnServer,
   fetchRecipes,
   setFavorite,
+  updateRecipeOnServer,
 } from "./api.js";
 import { isCategory } from "./parse.js";
 import { assertNever, errorMessage } from "./state.js";
 import { debounce } from "./debounce.js";
 import { withRetry } from "./retry.js";
-import { deleteRecipe, filterRecipes } from "./recipes.js";
+import { deleteRecipe, filterRecipes, sortRecipes } from "./recipes.js";
 import {
+  cancelEditButton,
   categoryFilter,
+  editMessage,
+  editRecipeCategory,
+  editRecipeForm,
+  editRecipeId,
+  editRecipeIngredients,
+  editRecipeInstructions,
+  editRecipeServings,
+  editRecipeTime,
+  editRecipeTitle,
   favoritesOnly,
   formMessage,
   recipeForm,
@@ -21,6 +40,8 @@ import {
   renderRecipes,
   retryButton,
   searchInput,
+  sortDirectionSelect,
+  sortKeySelect,
 } from "./ui.js";
 
 let state: LoadState = { status: "loading" };
@@ -38,6 +59,10 @@ function getFilter(): RecipeFilter {
   };
 }
 
+function isSortKey(value: string): value is RecipeSortKey {
+  return value === "title" || value === "servings" || value === "cookingTime";
+}
+
 function render(): void {
   retryButton.hidden = state.status !== "error";
 
@@ -48,9 +73,16 @@ function render(): void {
     case "error":
       renderMessage(`Не удалось загрузить: ${state.message}`);
       break;
-    case "success":
-      renderRecipes(filterRecipes(state.recipes, getFilter()));
+    case "success": {
+      const filtered = filterRecipes(state.recipes, getFilter());
+      const sortKey = sortKeySelect.value;
+      const direction = sortDirectionSelect.value === "desc" ? "desc" : "asc";
+      const prepared = isSortKey(sortKey)
+        ? sortRecipes(filtered, sortKey, direction)
+        : filtered;
+      renderRecipes(prepared);
       break;
+    }
     default:
       assertNever(state);
   }
@@ -85,7 +117,14 @@ searchInput.addEventListener(
 );
 categoryFilter.addEventListener("change", render);
 favoritesOnly.addEventListener("change", render);
+sortKeySelect.addEventListener("change", render);
+sortDirectionSelect.addEventListener("change", render);
 retryButton.addEventListener("click", () => void init());
+
+cancelEditButton.addEventListener("click", () => {
+  editRecipeForm.reset();
+  editRecipeForm.hidden = true;
+});
 
 recipeList.addEventListener("click", async (event: MouseEvent) => {
   const target = event.target;
@@ -95,6 +134,23 @@ recipeList.addEventListener("click", async (event: MouseEvent) => {
   const id = button?.dataset.id;
   const action = button?.dataset.action;
   if (!id || !action || state.status !== "success") return;
+
+  if (action === "edit") {
+    const current = state.recipes.find((recipe) => recipe.id === id);
+    if (!current) return;
+
+    editRecipeId.value = current.id;
+    editRecipeTitle.value = current.title;
+    editRecipeCategory.value = current.category;
+    editRecipeServings.value = String(current.servings);
+    editRecipeTime.value = String(current.cookingTime);
+    editRecipeIngredients.value = current.ingredients.join(", ");
+    editRecipeInstructions.value = current.instructions;
+    editMessage.textContent = "";
+    editRecipeForm.hidden = false;
+    editRecipeForm.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
 
   try {
     if (action === "favorite") {
@@ -111,6 +167,40 @@ recipeList.addEventListener("click", async (event: MouseEvent) => {
     }
   } catch (error: unknown) {
     formMessage.textContent = `Не удалось выполнить действие: ${errorMessage(error)}`;
+  }
+});
+
+editRecipeForm.addEventListener("submit", async (event: SubmitEvent) => {
+  event.preventDefault();
+
+  if (state.status !== "success") return;
+
+  const category = editRecipeCategory.value;
+  if (!isCategory(category)) return;
+
+  const id = editRecipeId.value;
+
+  const changes: RecipeUpdate = {
+    title: editRecipeTitle.value.trim(),
+    category,
+    servings: Number(editRecipeServings.value),
+    cookingTime: Number(editRecipeTime.value),
+    ingredients: editRecipeIngredients.value.split(",").map((x) => x.trim()).filter(Boolean),
+    instructions: editRecipeInstructions.value.trim(),
+  };
+
+  try {
+    const updated = await updateRecipeOnServer(id, changes);
+
+    updateRecipes((list) =>
+      list.map((recipe) => (recipe.id === id ? updated : recipe))
+    );
+
+    editRecipeForm.reset();
+    editRecipeForm.hidden = true;
+    formMessage.textContent = "Изменения сохранены.";
+  } catch (error: unknown) {
+    editMessage.textContent = errorMessage(error);
   }
 });
 

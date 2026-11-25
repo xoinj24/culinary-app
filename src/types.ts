@@ -15,8 +15,27 @@ export interface Recipe {
 
 export type NewRecipe = Omit<Recipe, "id">;
 
+export type RecipeUpdate = Partial<Omit<Recipe, "id">>;
+
 export type RecipeFilter = {
   query: string;
   category: Category | "Все";
   favoritesOnly: boolean;
 };
+
+export type RecipeSortKey =
+  | "title"
+  | "servings"
+  | "cookingTime";
+
+export type RecipeSortValue =
+  Recipe["title"] | Recipe["servings"] | Recipe["cookingTime"];
+
+export type CategoryLabels = Record<Category, string>;
+
+export type RecipeCardData = Pick<Recipe, "id" | "title" | "category">;
+export type RecipeWithoutId = Omit<Recipe, "id">;
+export type ReadonlyRecipe = Readonly<Recipe>;
+export type CategoryCounts = Record<Category, number>;
+export type EditableRecipeFields = Exclude<keyof Recipe, "id">;
+export type MainRecipeFields = Extract<keyof Recipe, "title" | "category">;
