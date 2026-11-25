@@ -8,7 +8,19 @@ function requireElement(selector) {
 export const searchInput = requireElement("#search");
 export const categoryFilter = requireElement("#category-filter");
 export const favoritesOnly = requireElement("#favorites-only");
+export const sortKeySelect = requireElement("#sort-key");
+export const sortDirectionSelect = requireElement("#sort-direction");
 export const recipeForm = requireElement("#recipe-form");
+export const editRecipeForm = requireElement("#edit-recipe-form");
+export const editRecipeId = requireElement("#edit-recipe-id");
+export const editRecipeTitle = requireElement("#edit-recipe-title");
+export const editRecipeCategory = requireElement("#edit-recipe-category");
+export const editRecipeServings = requireElement("#edit-recipe-servings");
+export const editRecipeTime = requireElement("#edit-recipe-time");
+export const editRecipeIngredients = requireElement("#edit-recipe-ingredients");
+export const editRecipeInstructions = requireElement("#edit-recipe-instructions");
+export const editMessage = requireElement("#edit-message");
+export const cancelEditButton = requireElement("#cancel-edit");
 export const recipeList = requireElement("#recipe-list");
 export const formMessage = requireElement("#form-message");
 export const resultsCount = requireElement("#results-count");
@@ -44,12 +56,17 @@ export function renderRecipes(recipes) {
         favoriteButton.dataset.action = "favorite";
         favoriteButton.dataset.id = recipe.id;
         favoriteButton.textContent = recipe.favorite ? "★ Убрать из избранного" : "☆ В избранное";
+        const editButton = document.createElement("button");
+        editButton.type = "button";
+        editButton.dataset.action = "edit";
+        editButton.dataset.id = recipe.id;
+        editButton.textContent = "Редактировать";
         const deleteButton = document.createElement("button");
         deleteButton.type = "button";
         deleteButton.dataset.action = "delete";
         deleteButton.dataset.id = recipe.id;
         deleteButton.textContent = "Удалить";
-        card.append(title, meta, ingredients, instructions, favoriteButton, deleteButton);
+        card.append(title, meta, ingredients, instructions, favoriteButton, editButton, deleteButton);
         recipeList.append(card);
     }
 }
